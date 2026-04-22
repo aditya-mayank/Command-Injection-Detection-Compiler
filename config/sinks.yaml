@@ -1,0 +1,13 @@
+# Dangerous sinks
+# These functions execute commands or processes.
+- system
+- popen
+- execl
+- execle
+- execlp
+- execv
+- execve
+- execvp
+- _wsystem
+- _wpopen
+- _popen

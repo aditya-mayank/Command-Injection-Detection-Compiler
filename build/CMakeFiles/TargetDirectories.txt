@@ -1,0 +1,3 @@
+D:/Command Injection Detection Compiler/Command-Injection-Detection-Compiler/build/CMakeFiles/ir_scan_v2.dir
+D:/Command Injection Detection Compiler/Command-Injection-Detection-Compiler/build/CMakeFiles/ALL_BUILD.dir
+D:/Command Injection Detection Compiler/Command-Injection-Detection-Compiler/build/CMakeFiles/ZERO_CHECK.dir

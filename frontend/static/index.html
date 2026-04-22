@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CIDC – Command Injection Detection Compiler</title>
+  <meta name="description" content="Static analysis tool that detects command injection vulnerabilities in C/C++ programs using LLVM IR taint analysis." />
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <!-- CodeMirror -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css" />
+
+  <!-- Main CSS -->
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- Chart.js framework -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<!-- ═══════════════════════════ HEADER ═══════════════════════════════════════ -->
+<header class="topbar" id="topbar">
+  <div class="topbar-left">
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="16" cy="16" r="15" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M9 12l4 4-4 4M17 20h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="23" cy="12" r="2.5" fill="currentColor" opacity="0.7"/>
+        </svg>
+      </div>
+      <div class="logo-text">
+        <span class="logo-title">CIDC</span>
+        <span class="logo-sub">Command Injection Detection Compiler</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="topbar-center">
+    <div class="health-indicator" id="healthIndicator">
+      <div class="health-dot" id="healthDot"></div>
+      <span id="healthLabel">Checking...</span>
+    </div>
+  </div>
+
+  <div class="topbar-right">
+    <button class="btn-icon" id="themeToggle" title="Toggle theme" aria-label="Toggle theme">
+      <svg id="themeIconDark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+      </svg>
+      <svg id="themeIconLight" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none">
+        <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/>
+        <line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/>
+        <line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+      </svg>
+    </button>
+    <button class="btn-icon" id="configBtn" title="View Configuration" aria-label="View Configuration">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+      </svg>
+    </button>
+    <button class="btn-icon" id="historyBtn" title="Scan History" aria-label="Scan History">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="12 8 12 12 14 14"/><path d="M3.05 11a9 9 0 1 0 .5-4.5"/>
+        <polyline points="3 3 3 7 7 7"/>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<!-- ═══════════════════════════ MAIN LAYOUT ══════════════════════════════════ -->
+<main class="app-layout" id="appLayout">
+
+  <!-- ──────────────── LEFT PANEL: Editor ──────────────── -->
+  <section class="panel panel-editor" id="panelEditor">
+    <div class="panel-header">
+      <div class="panel-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+          <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+        </svg>
+        <span>Code Editor</span>
+      </div>
+      <div class="panel-actions">
+        <label class="btn-pill" for="fileUpload" title="Upload .c or .ll file">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          Upload
+        </label>
+        <input type="file" id="fileUpload" accept=".c,.ll" hidden />
+        <button class="btn-pill" id="clearBtn" title="Clear editor">Clear</button>
+      </div>
+    </div>
+
+    <!-- File type indicator -->
+    <div class="file-type-bar">
+      <button class="file-type-btn active" id="btnTypeC" data-type="c">C Source</button>
+      <button class="file-type-btn" id="btnTypeLL" data-type="ll">LLVM IR</button>
+      <span class="filename-display" id="filenameDisplay">untitled.c</span>
+    </div>
+
+    <!-- Code Editor -->
+    <div class="editor-wrapper">
+      <textarea id="codeEditor" spellcheck="false"></textarea>
+    </div>
+
+    <!-- Examples Strip -->
+    <div class="examples-strip">
+      <div class="examples-label">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
+          <path d="M14.5 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7.5L14.5 2z"/>
+          <polyline points="14 2 14 8 20 8"/>
+        </svg>
+        Examples:
+      </div>
+      <div class="examples-list" id="examplesList">
+        <div class="example-skeleton"></div>
+        <div class="example-skeleton"></div>
+        <div class="example-skeleton"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ──────────────── CENTER: Controls ──────────────── -->
+  <section class="panel panel-controls" id="panelControls">
+    
+    <!-- Scan Options -->
+    <div class="options-card">
+      <div class="options-title">Scan Options</div>
+
+      <div class="option-row">
+        <label class="toggle-label" for="verboseToggle">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/>
+          </svg>
+          Verbose mode
+        </label>
+        <label class="toggle-switch">
+          <input type="checkbox" id="verboseToggle" checked />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="option-row threshold-row">
+        <label class="toggle-label" for="thresholdSlider">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+          Confidence threshold
+        </label>
+        <div class="threshold-control">
+          <input type="range" id="thresholdSlider" min="0" max="100" value="0" step="5" />
+          <span class="threshold-value" id="thresholdValue">0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scan Button -->
+    <button class="scan-btn" id="scanBtn">
+      <div class="scan-btn-inner">
+        <svg class="scan-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <span class="scan-label">Run Scan</span>
+      </div>
+      <div class="scan-progress" id="scanProgress"></div>
+    </button>
+
+    <!-- Stats -->
+    <div class="stats-grid" id="statsGrid">
+      <div class="stat-card stat-total">
+        <div class="stat-num" id="statTotal">–</div>
+        <div class="stat-lbl">Total</div>
+      </div>
+      <div class="stat-card stat-critical">
+        <div class="stat-num" id="statCritical">–</div>
+        <div class="stat-lbl">Critical</div>
+      </div>
+      <div class="stat-card stat-high">
+        <div class="stat-num" id="statHigh">–</div>
+        <div class="stat-lbl">High</div>
+      </div>
+      <div class="stat-card stat-warn">
+        <div class="stat-num" id="statWarning">–</div>
+        <div class="stat-lbl">Warning</div>
+      </div>
+    </div>
+
+    <!-- Risk Meter -->
+    <div class="risk-meter-card" id="riskMeterCard" style="display:none">
+      <div class="risk-meter-container">
+        <div class="risk-meter-header">
+          <span>OVERALL RISK SCORE</span>
+          <span class="risk-meter-value" id="riskMeterValue">0/100</span>
+        </div>
+        <div class="risk-meter-bar"><div class="risk-meter-fill" id="riskMeterFill"></div></div>
+      </div>
+
+      <!-- Energy Profile -->
+      <div class="energy-card" id="energyCard" style="display:none; margin-top: 10px;">
+        <div class="energy-header">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+          </svg>
+          <span>Energy Tracker</span>
+        </div>
+        <div class="energy-row" id="energyScanRow">
+          <span>Scan Emission:</span>
+          <span class="energy-val" id="energyScanVal">0.000g</span>
+        </div>
+        <div class="energy-row" id="energySavedRow" style="display:none">
+          <span style="color:var(--success)">Emission Saved:</span>
+          <span class="energy-val" id="energySavedVal" style="color:var(--success)">0.000g</span>
+        </div>
+        <div class="energy-saved-badge" id="energyOptimizedBadge" style="display:none">
+          ⚡ Cached Execution (0g CO₂)
+        </div>
+      </div>
+      <div class="risk-meter-value" id="riskScoreValLegacy" style="display:none">0%</div>
+    </div>
+
+    <!-- Export -->
+    <div class="export-row" id="exportRow" style="display:none">
+      <button class="btn-export" id="exportJsonBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+          <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        Export JSON
+      </button>
+      <button class="btn-export" id="exportTxtBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V7.5L14.5 2z"/>
+          <polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/>
+        </svg>
+        Export TXT
+      </button>
+    </div>
+
+  </section>
+
+  <!-- ──────────────── RIGHT PANEL: Results ──────────────── -->
+  <section class="panel panel-results" id="panelResults">
+
+    <!-- Tab Bar -->
+    <div class="tabs-bar">
+      <button class="tab active" id="tabFindings" data-tab="findings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+          <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        Findings
+        <span class="tab-badge" id="findingsBadge" style="display:none">0</span>
+      </button>
+      <button class="tab" id="tabGraph" data-tab="graph">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+          <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+          <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+        </svg>
+        Taint Graph
+      </button>
+      <button class="tab" id="tabIR" data-tab="ir" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+          <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+        </svg>
+        LLVM IR
+      </button>
+      <button class="tab" id="tabSolutions" data-tab="solutions" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+          <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        Solutions
+        <span class="tab-badge tab-badge-green" id="solutionsBadge" style="display:none">0</span>
+      </button>
+      <button class="tab" id="tabVerbose" data-tab="verbose" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+        </svg>
+        Verbose Log
+      </button>
+      <button class="tab" id="tabPerformance" data-tab="performance">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+        </svg>
+        Performance
+      </button>
+    </div>
+
+    <!-- Tab: Findings -->
+    <div class="tab-content active" id="contentFindings">
+      <div class="findings-empty" id="findingsEmpty">
+        <div class="empty-icon">
+          <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="32" cy="32" r="28"/>
+            <path d="M20 32h24M32 20v24" opacity="0.3"/>
+            <circle cx="32" cy="32" r="8" />
+          </svg>
+        </div>
+        <div class="empty-title">No scan yet</div>
+        <div class="empty-sub">Write or load C code, then click <strong>Run Scan</strong></div>
+      </div>
+      <div class="findings-list" id="findingsList"></div>
+    </div>
+
+    <!-- Tab: Performance Base Analysis -->
+    <div class="tab-content" id="contentPerformance">
+      <div class="findings-list" style="padding:15px; color:var(--text-main);">
+        <h3 style="margin-top:0; font-weight:600; font-size:1.1rem; color:#fff;">Engine Execution Scaling Analysis</h3>
+        <p style="font-size:0.9rem; opacity:0.8; margin-bottom:10px; line-height:1.4;">
+          The CIDC tracks taint vulnerability traces using Control Flow Multi-Hop charting. This executes entirely bounded mathematically by O(V*E). Below maps C++ Execution Performance bounds explicitly resolving bloated payloads natively bypassing string-based linear limitations structurally!
+        </p>
+        <div style="background:var(--panel-bg); border:1px solid var(--border); border-radius:8px; padding:15px; width: 100%; height: 350px;">
+          <canvas id="perfChart"></canvas>
+        </div>
+        <div style="font-size:0.85rem; opacity:0.75; margin-top:15px;">
+          * Note: Values map core memory allocation executions against varying AST densities (Micro-files to monolithic complex structures).
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Graph -->
+    <div class="tab-content" id="contentGraph">
+      <div class="graph-empty" id="graphEmpty">
+        <div class="empty-icon">
+          <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="48" cy="12" r="8"/><circle cx="16" cy="32" r="8"/><circle cx="48" cy="52" r="8"/>
+            <line x1="22.9" y1="35" x2="41.1" y2="49"/><line x1="41.1" y1="15" x2="22.9" y2="29"/>
+          </svg>
+        </div>
+        <div class="empty-title">No taint graph</div>
+        <div class="empty-sub">Enable Verbose mode and run a scan to generate the data flow graph</div>
+      </div>
+      <div class="graph-container" id="graphContainer" style="display:none">
+        <div class="graph-toolbar">
+          <button class="btn-icon-sm" id="zoomIn" title="Zoom in">+</button>
+          <button class="btn-icon-sm" id="zoomOut" title="Zoom out">−</button>
+          <button class="btn-icon-sm" id="zoomReset" title="Fit graph">⊡</button>
+          <div class="graph-legend">
+            <span class="legend-dot source"></span><span class="legend-label">Source</span>
+            <span class="legend-dot mid"></span><span class="legend-label">Propagation</span>
+            <span class="legend-dot sink"></span><span class="legend-label">Sink</span>
+          </div>
+          <button class="btn-export btn-sm" id="downloadDot" style="margin-left:auto">
+            ↓ .dot
+          </button>
+        </div>
+        <svg id="taintSvg"></svg>
+      </div>
+    </div>
+
+    <!-- Tab: IR -->
+    <div class="tab-content" id="contentIr">
+      <div class="ir-viewer" id="irViewer">
+        <pre class="ir-code" id="irCode"></pre>
+      </div>
+    </div>
+
+    <!-- Tab: Solutions -->
+    <div class="tab-content" id="contentSolutions">
+      <div class="solutions-empty" id="solutionsEmpty" style="display:flex">
+        <div class="empty-icon">
+          <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="32" cy="32" r="28"/>
+            <polyline points="22 33 28 39 42 25"/>
+          </svg>
+        </div>
+        <div class="empty-title">No solutions yet</div>
+        <div class="empty-sub">Run a scan to get remediation recommendations</div>
+      </div>
+      <div class="solutions-list" id="solutionsList"></div>
+    </div>
+
+    <!-- Tab: Verbose -->
+    <div class="tab-content" id="contentVerbose">
+      <div class="verbose-viewer">
+        <pre class="verbose-log" id="verboseLog"></pre>
+      </div>
+    </div>
+
+  </section>
+</main>
+
+<!-- ═══════════════════════════ MODALS ════════════════════════════════════════ -->
+
+<!-- Config modal -->
+<div class="modal-overlay" id="configModal" role="dialog" aria-modal="true" style="display:none">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Analysis Configuration</div>
+      <button class="modal-close" id="configClose">&times;</button>
+    </div>
+    <div class="modal-body" id="configBody">
+      <div class="config-sections">
+        <div class="config-section">
+          <div class="config-section-title danger">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>
+              <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            Taint Sources
+          </div>
+          <div class="config-tags" id="configSources"></div>
+        </div>
+        <div class="config-section">
+          <div class="config-section-title warning">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14">
+              <polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/>
+              <line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            Dangerous Sinks
+          </div>
+          <div class="config-tags" id="configSinks"></div>
+        </div>
+        <div class="config-section">
+          <div class="config-section-title success">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            Sanitizers
+          </div>
+          <div class="config-tags" id="configSanitizers"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- History modal -->
+<div class="modal-overlay" id="historyModal" role="dialog" aria-modal="true" style="display:none">
+  <div class="modal modal-wide">
+    <div class="modal-header">
+      <div class="modal-title">Scan History</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn-export" id="clearHistoryBtn">Clear</button>
+        <button class="modal-close" id="historyClose">&times;</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="history-list" id="historyList">
+        <div class="empty-title" style="padding:2rem;text-align:center;opacity:.5">No history yet</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ═══════════════════════════ SCRIPTS ═══════════════════════════════════════ -->
+<!-- Chart.js Graph Initialization -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  window.addEventListener('load', () => {
+    const ctx = document.getElementById('perfChart').getContext('2d');
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ["Micro (15)", "Dense (35)", "Multi-Hop (150)", "Complex (635)", "Extrapolated (1000+)"],
+        datasets: [{
+          label: 'Execution Time (s)',
+          data: [0.03, 0.08, 0.25, 1.10, 2.30],
+          backgroundColor: 'rgba(52, 152, 219, 0.6)',
+          borderColor: 'rgba(52, 152, 219, 1)',
+          borderWidth: 1
+        },
+        {
+          label: 'Scaling Trend',
+          type: 'line',
+          data: [0.03, 0.08, 0.25, 1.10, 2.30],
+          borderColor: 'rgba(46, 204, 113, 1)',
+          borderWidth: 2,
+          fill: false,
+          tension: 0.4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: { 
+            beginAtZero: true, 
+            grid: { color: 'rgba(255, 255, 255, 0.1)' }, 
+            ticks: { color: '#aaa', font: { size: 12 } },
+            title: { display: true, text: 'Time (Seconds)', color: '#fff' }
+          },
+          x: { 
+            grid: { display: false }, 
+            ticks: { color: '#aaa', font: { size: 12 } },
+            title: { display: true, text: 'File Complexity (Lines)', color: '#fff' }
+          }
+        },
+        plugins: { 
+          legend: { labels: { color: '#fff' } } 
+        }
+      }
+    });
+  });
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/clike/clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

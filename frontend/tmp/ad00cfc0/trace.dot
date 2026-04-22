@@ -1,0 +1,17 @@
+digraph TaintFlow {
+  node [shape=box, style=filled, fillcolor=lightgray];
+  rankdir=TB;
+  "Source: 'getenv' returns to %7 (T0)" -> "Stored %7 into memory %6 (T0)";
+  "Stored %7 into memory %6 (T0)" -> "Loaded from %6 into %11 (T0)";
+  "Loaded from %6 into %11 (T0)" -> "Passed as argument 0 to intermediate (T0)";
+  "Passed as argument 0 to intermediate (T0)" -> "Param '%0' implicitly tainted via func 'intermediate' (T0)";
+  "Param '%0' implicitly tainted via func 'intermediate' (T0)" -> "Stored %0 into memory %2 (T0)";
+  "Stored %0 into memory %2 (T0)" -> "Loaded from %2 into %3 (T0)";
+  "Loaded from %2 into %3 (T0)" -> "Passed as argument 0 to execute_cmd (T0)";
+  "Passed as argument 0 to execute_cmd (T0)" -> "Param '%0' implicitly tainted via func 'execute_cmd' (T0)";
+  "Param '%0' implicitly tainted via func 'execute_cmd' (T0)" -> "Stored %0 into memory %2 (T0)";
+  "Stored %0 into memory %2 (T0)" -> "Loaded from %2 into %60 (T0)";
+  "Loaded from %2 into %60 (T0)" -> "SINK: 'system' (T0)";
+  "Source: 'getenv' returns to %7 (T0)" [fillcolor=lightgreen, color=black];
+  "SINK: 'system' (T0)" [fillcolor=lightpink, color=red];
+}

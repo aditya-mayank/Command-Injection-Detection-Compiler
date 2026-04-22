@@ -1,0 +1,5 @@
+# Sanitization functions
+# These functions are considered to clean tainted data.
+- escape_shell_arg
+- sanitize_input
+- google_sanitize

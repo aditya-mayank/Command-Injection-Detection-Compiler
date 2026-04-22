@@ -1,0 +1,9 @@
+digraph TaintFlow {
+  node [shape=box, style=filled, fillcolor=lightgray];
+  rankdir=TB;
+  "Source: 'getenv' returns to %6 (T0)" -> "Stored %6 into memory %2 (T0)";
+  "Stored %6 into memory %2 (T0)" -> "Loaded from %2 into %30 (T0)";
+  "Loaded from %2 into %30 (T0)" -> "SINK: 'system' (T0)";
+  "Source: 'getenv' returns to %6 (T0)" [fillcolor=lightgreen, color=black];
+  "SINK: 'system' (T0)" [fillcolor=lightpink, color=red];
+}

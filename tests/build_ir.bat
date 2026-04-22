@@ -1,0 +1,9 @@
+clang -S -emit-llvm unsafe.c -o unsafe.ll
+clang -S -emit-llvm safe.c -o safe.ll
+clang -S -emit-llvm basic_test.c -o basic_test.ll
+clang -S -emit-llvm sanitized.c -o sanitized.ll
+clang -S -emit-llvm unsafe2.c -o unsafe2.ll
+clang -S -emit-llvm wrapper_test.c -o wrapper_test.ll
+clang -S -emit-llvm multi_hop.c -o multi_hop.ll
+clang -S -emit-llvm obfuscated_injection.c -o obfuscated_injection.ll
+clang -S -emit-llvm false_positive_test.c -o false_positive_test.ll

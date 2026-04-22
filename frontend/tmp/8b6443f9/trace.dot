@@ -1,0 +1,18 @@
+digraph TaintFlow {
+  node [shape=box, style=filled, fillcolor=lightgray];
+  rankdir=TB;
+  "Source: 'getenv' returns to %12 (T0)" -> "Phi node merged flow to %15 (T0)";
+  "Phi node merged flow to %15 (T0)" -> "String propagated to %16 via strcpy (T0)";
+  "String propagated to %16 via strcpy (T0)" -> "Propagated to alias base %2 (T0)";
+  "Propagated to alias base %2 (T0)" -> "Pointer aliased: %2 -> %18 (T0)";
+  "Pointer aliased: %2 -> %18 (T0)" -> "Passed as argument 0 to handle_ping_request (T0)";
+  "Passed as argument 0 to handle_ping_request (T0)" -> "Param '%0' implicitly tainted via func 'handle_ping_request' (T0)";
+  "Param '%0' implicitly tainted via func 'handle_ping_request' (T0)" -> "Stored %0 into memory %2 (T0)";
+  "Stored %0 into memory %2 (T0)" -> "Loaded from %2 into %8 (T0)";
+  "Loaded from %2 into %8 (T0)" -> "String propagated to %9 via strcat (T0)";
+  "String propagated to %9 via strcat (T0)" -> "Propagated to alias base %3 (T0)";
+  "Propagated to alias base %3 (T0)" -> "Pointer aliased: %3 -> %11 (T0)";
+  "Pointer aliased: %3 -> %11 (T0)" -> "SINK: '_popen' (T0)";
+  "Source: 'getenv' returns to %12 (T0)" [fillcolor=lightgreen, color=black];
+  "SINK: '_popen' (T0)" [fillcolor=lightpink, color=red];
+}
